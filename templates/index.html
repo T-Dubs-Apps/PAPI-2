@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PAPI 2">
+    <title>PAPI 2 // AI Command Core</title>
+    
+    <!-- Dynamic Icon & Manifest Generation Script -->
+    <script>
+        (function() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, 512, 512);
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 30;
+            ctx.beginPath();
+            ctx.arc(256, 256, 200, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = 'bold 120px Courier New';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('PAPI', 256, 200);
+            ctx.font = 'bold 180px Courier New';
+            ctx.fillText('2', 256, 340);
+            const iconUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('link');
+            link.type = 'image/x-icon';
+            link.rel = 'shortcut icon';
+            link.href = iconUrl;
+            document.getElementsByTagName('head')[0].appendChild(link);
+            const appleLink = document.createElement('link');
+            appleLink.rel = 'apple-touch-icon';
+            appleLink.href = iconUrl;
+            document.getElementsByTagName('head')[0].appendChild(appleLink);
+            const manifest = {
+                "name": "PAPI 2 Neural Interface",
+                "short_name": "PAPI 2",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#050505",
+                "theme_color": "#000000",
+                "orientation": "portrait-primary",
+                "icons": [{ "src": iconUrl, "sizes": "512x512", "type": "image/png" }]
+            };
+            const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            manifestLink.href = URL.createObjectURL(blob);
+            document.getElementsByTagName('head')[0].appendChild(manifestLink);
+        })();
+    </script>
+
+    <style>
+        :root {
+            --primary: #00ffcc;
+            --secondary: #0088aa;
+            --bg: #050505;
+            --text: #e0e0e0;
+            --alert: #ff3333;
+            --gold: #ffcc00;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Courier New', Courier, monospace; overflow: hidden; height: 100vh; width: 100vw; overscroll-behavior: none; }
+
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0.6; }
+        #interface { position: absolute; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; padding: 2rem; background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.8) 100%); opacity: 0; transition: opacity 1s ease; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--secondary); padding-bottom: 1rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px var(--primary); pointer-events: auto; }
+        .header-left, .header-right { display: flex; gap: 1rem; align-items: center; }
+
+        .status-badge { background: rgba(0, 255, 204, 0.1); padding: 0.5rem 1rem; border: 1px solid var(--primary); color: var(--primary); font-size: 0.8rem; min-width: 120px; text-align: center; transition: color 0.3s; cursor: pointer; }
+        #tier-badge { border-color: var(--gold); color: var(--gold); animation: glow 3s infinite alternate; }
+        @keyframes glow { from { box-shadow: 0 0 5px var(--gold); } to { box-shadow: 0 0 15px var(--gold); } }
+
+        .icon-btn { background: transparent; border: 1px solid var(--secondary); color: var(--secondary); padding: 0.5rem; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; width: 35px; height: 35px; }
+        .icon-btn:hover, .icon-btn.active { background: var(--secondary); color: var(--bg); box-shadow: 0 0 15px var(--secondary); }
+        
+        #fs-btn { border: 1px solid var(--primary); margin-right: 15px; box-shadow: inset 0 0 5px rgba(0, 255, 204, 0.2); }
+        #fs-btn:hover { background: var(--primary); color: black; box-shadow: 0 0 15px var(--primary); }
+        
+        #install-btn { border-color: var(--primary); color: var(--primary); animation: pulseBtn 2s infinite; display: none; }
+        @keyframes pulseBtn { 0% { box-shadow: 0 0 0 rgba(0,255,204,0); } 50% { box-shadow: 0 0 10px rgba(0,255,204,0.5); } 100% { box-shadow: 0 0 0 rgba(0,255,204,0); } }
+
+        #terminal-output { flex-grow: 1; overflow-y: auto; padding: 1rem 0; pointer-events: auto; font-size: 14px; line-height: 1.5; mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%); }
+        #terminal-output::-webkit-scrollbar { width: 5px; }
+        #terminal-output::-webkit-scrollbar-thumb { background: var(--secondary); }
+
+        .log-entry { margin-bottom: 0.5rem; opacity: 0; animation: fadeIn 0.3s forwards; }
+        .log-entry.user { color: #fff; }
+        .log-entry.ai { color: var(--primary); text-shadow: 0 0 5px rgba(0,255,204,0.5); }
+        .log-entry.error { color: var(--alert); }
+        .log-entry.system { color: var(--secondary); font-style: italic; }
+        .code-block { background: rgba(0,0,0,0.7); border-left: 3px solid var(--primary); padding: 1rem; margin: 0.5rem 0; font-family: monospace; white-space: pre-wrap; color: #aaddff; font-size: 0.9em; overflow-x: auto; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .input-area { pointer-events: auto; background: rgba(0,0,0,0.8); border: 1px solid var(--secondary); padding: 1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); }
+        .prompt { color: var(--primary); font-weight: bold; }
+        #command-input { background: transparent; border: none; color: white; font-family: inherit; font-size: 16px; flex-grow: 1; outline: none; }
+        
+        #mic-btn { background: transparent; border: none; color: var(--secondary); cursor: pointer; font-size: 1.2rem; transition: color 0.3s; }
+        #mic-btn:hover { color: var(--primary); }
+        #mic-btn.listening { color: var(--alert); animation: pulse 1s infinite; text-shadow: 0 0 10px var(--alert); }
+        #mic-btn.wake-active { color: var(--primary); animation: quickPulse 0.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        @keyframes quickPulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2)); background-size: 100% 4px; pointer-events: none; z-index: 100; opacity: 0.3; }
+
+        .modal-window { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 700px; max-width: 90vw; height: 500px; max-height: 80vh; background: rgba(5, 10, 15, 0.98); border: 1px solid var(--primary); box-shadow: 0 0 30px rgba(0, 255, 204, 0.2); display: none; flex-direction: column; z-index: 200; pointer-events: auto; backdrop-filter: blur(5px); animation: openWindow 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
+        .modal-window.maximized { width: 100vw !important; height: 100vh !important; max-width: none !important; max-height: none !important; top: 0 !important; left: 0 !important; transform: none !important; border: none; border-radius: 0; }
+        @keyframes openWindow { from { transform: translate(-50%, -40%) scale(0.9); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+        
+        .modal-header { background: rgba(0, 255, 204, 0.1); padding: 0.8rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--primary); user-select: none; }
+        .modal-title { font-weight: bold; color: var(--primary); letter-spacing: 1px; }
+        .modal-close { cursor: pointer; color: var(--alert); font-weight: bold; border: 1px solid var(--alert); padding: 0 6px; transition: 0.2s; }
+        .modal-close:hover { background: var(--alert); color: black; }
+        
+        .window-controls { display: flex; gap: 10px; align-items: center; }
+        .win-btn { background: transparent; border: 1px solid var(--primary); color: var(--primary); cursor: pointer; padding: 2px 8px; font-size: 0.9rem; transition: 0.2s; }
+        .win-btn:hover { background: var(--primary); color: black; }
+        .win-btn.close { border-color: var(--alert); color: var(--alert); }
+        .win-btn.close:hover { background: var(--alert); color: black; }
+
+        .modal-content { flex-grow: 1; position: relative; padding: 1rem; overflow: auto; color: white; }
+        
+        .tab-nav { display: flex; border-bottom: 1px solid var(--secondary); background: rgba(0,0,0,0.5); }
+        .tab-btn { flex: 1; background: transparent; border: none; color: var(--secondary); padding: 10px; cursor: pointer; font-family: inherit; font-weight: bold; transition: 0.2s; border-right: 1px solid rgba(0, 136, 170, 0.3); }
+        .tab-btn:hover { color: var(--primary); background: rgba(0, 255, 204, 0.05); }
+        .tab-btn.active { color: var(--bg); background: var(--primary); }
+        .tab-pane { display: none; padding: 15px; }
+        .tab-pane.active { display: block; }
+        
+        .cmd-item { margin-bottom: 15px; border-bottom: 1px solid rgba(0, 136, 170, 0.2); padding-bottom: 10px; }
+        .cmd-syntax { color: var(--primary); font-weight: bold; margin-bottom: 5px; display: block; }
+        .cmd-desc { color: #ccc; font-size: 0.9em; line-height: 1.4; }
+        
+        .tier-grid { display: flex; flex-wrap: wrap; gap: 10px; height: 100%; overflow-y: auto; }
+        .tier-card { flex: 1 1 180px; background: rgba(0,0,0,0.5); border: 1px solid var(--secondary); padding: 15px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s; }
+        .tier-card:hover { transform: translateY(-2px); border-color: var(--primary); }
+        .tier-card.active { border-color: var(--gold); box-shadow: inset 0 0 10px rgba(255, 204, 0, 0.2); }
+        .tier-name { color: var(--primary); font-weight: bold; font-size: 1.1em; margin-bottom: 5px; }
+        .tier-price { color: var(--gold); font-size: 1.2em; margin-bottom: 10px; }
+        .tier-features { font-size: 0.8em; color: #aaa; margin-bottom: 15px; list-style: none; }
+        .tier-features li { margin-bottom: 4px; padding-left: 10px; border-left: 2px solid var(--secondary); }
+        
+        .select-btn { background: var(--secondary); color: white; border: none; padding: 8px; width: 100%; font-family: inherit; cursor: pointer; }
+        .select-btn:hover { background: var(--primary); color: black; }
+        .select-btn:disabled { background: #333; color: #555; cursor: default; }
+
+        #lock-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--primary); pointer-events: auto; backdrop-filter: blur(10px); }
+        .lock-container { border: 2px solid var(--secondary); padding: 40px; background: rgba(0, 20, 30, 0.9); box-shadow: 0 0 50px rgba(0, 255, 204, 0.1); text-align: center; max-width: 400px; width: 90%; animation: fadeIn 1s ease; }
+        .lock-title { font-size: 1.5rem; letter-spacing: 5px; margin-bottom: 2rem; color: var(--alert); text-shadow: 0 0 10px var(--alert); }
+        .lock-input { background: black; border: 1px solid var(--secondary); color: white; padding: 15px; font-size: 1.5rem; text-align: center; width: 100%; margin-bottom: 20px; font-family: 'Courier New', Courier, monospace; letter-spacing: 10px; }
+        .lock-btn { background: var(--secondary); color: white; border: none; padding: 15px 30px; font-size: 1.2rem; cursor: pointer; width: 100%; font-family: inherit; font-weight: bold; letter-spacing: 2px; transition: 0.3s; }
+        .lock-btn:hover { background: var(--primary); color: black; box-shadow: 0 0 20px var(--primary); }
+        .lock-hint { margin-top: 15px; color: #555; font-size: 0.8rem; }
+        
+        button { cursor: pointer; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div class="scanlines"></div>
+
+    <!-- LOCK SCREEN -->
+    <div id="lock-screen">
+        <div class="lock-container">
+            <div class="lock-title"><i class="fas fa-lock"></i> SYSTEM LOCKED</div>
+            <input type="password" id="pin-input" class="lock-input" placeholder="****" maxlength="8" autofocus>
+            <button class="lock-btn" onclick="attemptUnlock()">UNLOCK CORE</button>
+            <div class="lock-hint">Default PIN: 0000</div>
+        </div>
+    </div>
+
+    <!-- App Sandbox -->
+    <div id="sandbox" class="modal-window">
+        <div class="modal-header">
+            <span class="modal-title" id="sandbox-title">VISUAL EXECUTION MODULE</span>
+            <div class="window-controls">
+                <button class="win-btn" onclick="toggleMaximize()" title="Fit to Screen" id="max-btn">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button class="win-btn close" onclick="closeSandbox()" title="Close">X</button>
+            </div>
+        </div>
+        <div id="sandbox-content" class="modal-content"></div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal-window">
+        <div class="modal-header">
+            <span class="modal-title">SYSTEM ARCHIVE v9.1</span>
+            <span class="modal-close" onclick="closeHelp()">X</span>
+        </div>
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchHelpTab('list')">COMMAND LIST</button>
+            <button class="tab-btn" onclick="switchHelpTab('docs')">NEURAL MANUAL</button>
+        </div>
+        <div id="tab-list" class="modal-content tab-pane active">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="cmd-item"><span class="cmd-syntax">Hi PAPI...</span><span class="cmd-desc">Wake Word Activation</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">generate [app]</span><span class="cmd-desc">Create App Code (Tier 4+)</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">run</span><span class="cmd-desc">Execute Last Code</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">exec [js]</span><span class="cmd-desc">Run Silent JS</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">stream</span><span class="cmd-desc">Free Media Hub</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">calc [expr]</span><span class="cmd-desc">Math Processor</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">status</span><span class="cmd-desc">System Check</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">scan</span><span class="cmd-desc">Network Scan</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">rename [name]</span><span class="cmd-desc">Reconfigure ID (Tier 3+)</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">setpin [code]</span><span class="cmd-desc">Change Security PIN</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">render [html]</span><span class="cmd-desc">Manual Injection</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">mute / unmute</span><span class="cmd-desc">Audio Control</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">clear</span><span class="cmd-desc">Purge Terminal</span></div>
+                <div class="cmd-item"><span class="cmd-syntax">upgrade</span><span class="cmd-desc">Change Subscription</span></div>
+            </div>
+        </div>
+        <div id="tab-docs" class="modal-content tab-pane">
+            <div class="cmd-item"><span class="cmd-syntax">VOICE ACTIVATION</span><div class="cmd-desc">Simply say "Hi PAPI", "Hey PAPI", or "PAPI" to wake the system. Follow up immediately with a command (e.g., "Hi PAPI, open help").</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">STREAM</span><div class="cmd-desc">Launches the Media Uplink interface. Accesses a curated list of legal, zero-cost streaming broadcasting frequencies (Tubi, Pluto, Plex, etc.). Note: Requires external signal path (opens in new tab).</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">SETPIN [CODE]</span><div class="cmd-desc">Updates the security access code for the lock screen. Applies to all Adult Tiers (2-5). Children (Tier 1) bypass this lock.</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">GENERATE [APP_NAME]</span><div class="cmd-desc">Initiates the PAPI 2 heuristic coding engine. Requires Tier 4 (Pro) or higher. On Tier 4, applications incur a per-use cost simulation. Tier 5 (Ultimate) grants unlimited access.</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">RUN</span><div class="cmd-desc">Compiles the most recently generated code block into the Holographic Sandbox environment.</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">EXEC [JAVASCRIPT_CODE]</span><div class="cmd-desc">Direct execution override. Inject raw JavaScript directly into the neural core's runtime environment.</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">RENAME [NEW_NAME]</span><div class="cmd-desc">Reconfigures the system's identity matrix. Requires Tier 3 (Basic) or higher.</div></div>
+            <div class="cmd-item"><span class="cmd-syntax">UPGRADE</span><div class="cmd-desc">Opens the Subscription Management Interface to switch between Child, Free, Basic, Pro, and Ultimate tiers.</div></div>
+        </div>
+    </div>
+
+    <!-- Tier Selection Modal -->
+    <div id="tier-modal" class="modal-window">
+        <div class="modal-header">
+            <span class="modal-title">SUBSCRIPTION MANAGEMENT</span>
+            <span class="modal-close" onclick="closeTierModal()">X</span>
+        </div>
+        <div class="modal-content">
+            <div class="tier-grid">
+                <div class="tier-card" id="card-t1">
+                    <div><div class="tier-name">TIER 1 (Child)</div><div class="tier-price">FREE</div><ul class="tier-features"><li>Ages 5-12 (Up to 3)</li><li>Ages 13-16 (1 w/ Adult)</li><li>Safe Search Filters</li><li>NO PIN REQUIRED</li></ul></div>
+                    <button class="select-btn" onclick="selectTier(1)">SELECT</button>
+                </div>
+                <div class="tier-card" id="card-t2">
+                    <div><div class="tier-name">TIER 2 (Free)</div><div class="tier-price">FREE</div><ul class="tier-features"><li>Standard Use</li><li>Limited: 15 Cmds/Mo</li><li>Max 20 Sentences</li><li>Pin Protected</li></ul></div>
+                    <button class="select-btn" onclick="selectTier(2)">SELECT</button>
+                </div>
+                <div class="tier-card" id="card-t3">
+                    <div><div class="tier-name">TIER 3 (Basic)</div><div class="tier-price">$7.99/mo</div><ul class="tier-features"><li>Change AI Name</li><li>Adult Tone/Mood</li><li>Coaching & Advice</li><li>Pin Protected</li></ul></div>
+                    <button class="select-btn" onclick="selectTier(3)">SUBSCRIBE</button>
+                </div>
+                <div class="tier-card" id="card-t4">
+                    <div><div class="tier-name">TIER 4 (Pro)</div><div class="tier-price">$19.99/mo</div><ul class="tier-features"><li>Pro-level Performance</li><li>App Generation Access</li><li>Pay-per-App Usage</li><li>Pin Protected</li></ul></div>
+                    <button class="select-btn" onclick="selectTier(4)">SUBSCRIBE</button>
+                </div>
+                <div class="tier-card" id="card-t5">
+                    <div><div class="tier-name">TIER 5 (Ult)</div><div class="tier-price">$99.00/mo</div><ul class="tier-features"><li>Full Unrestricted Access</li><li>Free App Usage</li><li>No Additional Costs</li><li>Pin Protected</li></ul></div>
+                    <button class="select-btn" onclick="selectTier(5)">SUBSCRIBE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="interface">
+        <div class="header">
+            <div class="header-left">
+                <div id="header-title">PAPI 2 // MODEL v9.1</div>
+                <button class="icon-btn" id="install-btn" title="Install App"><i class="fas fa-download"></i></button>
+                <button class="icon-btn" onclick="openHelp()" title="System Help"><i class="fas fa-question-circle"></i></button>
+                <button class="icon-btn" id="share-btn" onclick="shareSession()" title="Share Session" style="display:none;"><i class="fas fa-share-alt"></i></button>
+                <button class="icon-btn active" id="voice-toggle" title="Toggle AI Voice"><i class="fas fa-volume-up"></i></button>
+            </div>
+            <div class="header-right">
+                <button class="icon-btn" id="fs-btn" onclick="toggleGlobalFullscreen()" title="Toggle Full Screen"><i class="fas fa-expand"></i></button>
+                <div class="status-badge" id="tier-badge" onclick="openTierModal()">TIER: FREE</div>
+                <div class="status-badge" id="cpu-status">CPU: ONLINE</div>
+                <div class="status-badge" id="memory-status">MEMORY: STABLE</div>
+            </div>
+        </div>
+
+        <div id="terminal-output">
+            <div class="log-entry system">Initializing core systems...</div>
+            <div class="log-entry system">Loading neural pathways...</div>
+            <div class="log-entry system">Audio Synthesis Module: ONLINE</div>
+            <div class="log-entry system">Voice Recognition: STANDBY</div>
+            <div class="log-entry ai">Welcome, Administrator. I am PAPI 2. Voice systems active.</div>
+            <div class="log-entry system">Say "Hi PAPI" to activate voice command.</div>
+        </div>
+
+        <div class="input-area">
+            <span class="prompt" id="prompt-label">USER@PAPI 2:~$</span>
+            <input type="text" id="command-input" autocomplete="off" placeholder="Enter command..." autofocus>
+            <button id="mic-btn" title="Activate Voice Command (`)"><i class="fas fa-microphone"></i></button>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL DOM ELEMENTS (Defined First to Prevent ReferenceErrors) ---
+        const terminal = document.getElementById('terminal-output');
+        const input = document.getElementById('command-input');
+        const muteBtn = document.getElementById('voice-toggle');
+        const micBtn = document.getElementById('mic-btn');
+        const sandbox = document.getElementById('sandbox');
+        const sandboxContent = document.getElementById('sandbox-content');
+        const sandboxTitle = document.getElementById('sandbox-title');
+        const helpModal = document.getElementById('help-modal');
+        const tierModal = document.getElementById('tier-modal');
+        const tierBadge = document.getElementById('tier-badge');
+        const shareBtn = document.getElementById('share-btn');
+        const installBtn = document.getElementById('install-btn');
+        const lockScreen = document.getElementById('lock-screen');
+        const pinInput = document.getElementById('pin-input');
+        const interfaceLayer = document.getElementById('interface');
+
+        // --- CONFIG & STATE ---
+        let aiName = localStorage.getItem('aiName') || "PAPI 2";
+        let userPin = localStorage.getItem('userPin') || "0000";
+        let currentTier = parseInt(localStorage.getItem('currentTier')) || 2;
+        
+        let isMuted = false;
+        let isListening = false;
+        let synth = window.speechSynthesis;
+        let recognition = null;
+        let lastGeneratedCode = "";
+        let currentCpuLoad = 10;
+        let commandCount = 0;
+        let waitingForWakeWord = true; 
+        const TIER_2_LIMIT = 15;
+
+        // --- AUDIO & VOICE ---
+        const speak = (text) => {
+            if (isMuted || !synth) return;
+            synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.pitch = 0.8; utterance.rate = 1.0;
+            const voices = synth.getVoices();
+            const preferredVoice = voices.find(v => v.name.includes('Google US English')) || voices.find(v => v.name.includes('David')) || voices[0];
+            if (preferredVoice) utterance.voice = preferredVoice;
+            synth.speak(utterance);
+            document.getElementById('canvas-container').style.opacity = '1';
+            utterance.onend = () => { document.getElementById('canvas-container').style.opacity = '0.6'; };
+        };
+
+        const log = (text, type = 'system') => {
+            const div = document.createElement('div');
+            div.className = `log-entry ${type}`;
+            div.textContent = `> ${text}`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+            if (type === 'ai') { speak(text); currentCpuLoad += Math.min(text.length * 1.5, 40); }
+        };
+
+        // --- UI UTILS & FUNCTIONS ---
+        const updateUIIdentity = () => {
+            document.getElementById('header-title').textContent = `${aiName} // MODEL v9.1`;
+            document.getElementById('prompt-label').textContent = `USER@${aiName}:~$`;
+            document.title = `${aiName} // AI Command Core`;
+            let label = "FREE";
+            if(currentTier === 1) label = "CHILD"; if(currentTier === 3) label = "BASIC"; if(currentTier === 4) label = "PRO"; if(currentTier === 5) label = "ULT";
+            tierBadge.textContent = `TIER: ${label}`;
+            if (currentTier >= 2) shareBtn.style.display = 'inline-flex'; else shareBtn.style.display = 'none';
+        };
+
+        const closeSandbox = () => { sandbox.style.display = 'none'; sandbox.classList.remove('maximized'); document.querySelector('#max-btn i').className = 'fas fa-expand'; sandboxContent.innerHTML = ''; };
+        const openSandbox = (title, content) => { helpModal.style.display = 'none'; tierModal.style.display = 'none'; sandboxTitle.textContent = title; sandboxContent.innerHTML = content; sandbox.style.display = 'flex'; const scripts = sandboxContent.getElementsByTagName("script"); for(let script of scripts) { try { eval(script.innerText); } catch(e) { console.error(e); } } };
+        const toggleMaximize = () => { sandbox.classList.toggle('maximized'); const icon = document.querySelector('#max-btn i'); if(sandbox.classList.contains('maximized')) icon.className = 'fas fa-compress'; else icon.className = 'fas fa-expand'; };
+        const toggleGlobalFullscreen = () => { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e => console.log(e)); log('Visual Interface Expanded: Fullscreen Mode Active', 'system'); } else { if (document.exitFullscreen) document.exitFullscreen(); log('Visual Interface Retracted: Windowed Mode Active', 'system'); } };
+        document.addEventListener('fullscreenchange', () => { const icon = document.querySelector('#fs-btn i'); if (document.fullscreenElement) icon.className = 'fas fa-compress'; else icon.className = 'fas fa-expand'; });
+        const openHelp = () => { sandbox.style.display = 'none'; tierModal.style.display = 'none'; helpModal.style.display = 'flex'; };
+        const closeHelp = () => { helpModal.style.display = 'none'; };
+        const switchHelpTab = (tabName) => { document.querySelectorAll('.tab-pane').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if (tabName === 'list') { document.getElementById('tab-list').classList.add('active'); document.querySelectorAll('.tab-btn')[0].classList.add('active'); } else { document.getElementById('tab-docs').classList.add('active'); document.querySelectorAll('.tab-btn')[1].classList.add('active'); } };
+        const openTierModal = () => { sandbox.style.display = 'none'; helpModal.style.display = 'none'; tierModal.style.display = 'flex'; updateTierCards(); };
+        const closeTierModal = () => { tierModal.style.display = 'none'; };
+        const updateTierCards = () => { for(let i=1; i<=5; i++) { const card = document.getElementById(`card-t${i}`); const btn = card.querySelector('.select-btn'); if(i === currentTier) { card.classList.add('active'); btn.textContent = "CURRENT"; btn.disabled = true; } else { card.classList.remove('active'); btn.textContent = i > 2 ? "SUBSCRIBE" : "SELECT"; btn.disabled = false; } } };
+        
+        const saveState = () => { localStorage.setItem('aiName', aiName); localStorage.setItem('userPin', userPin); localStorage.setItem('currentTier', currentTier); };
+
+        const selectTier = (tier) => {
+            if (tier === 1) { const age = prompt("VERIFICATION REQUIRED: Age?"); if (age < 5 || age > 16) { alert("Verification Failed."); return; } }
+            if (tier >= 3) { if (!confirm(`Confirm subscription to Tier ${tier}?`)) return; }
+            currentTier = tier; commandCount = 0; saveState(); updateUIIdentity(); log(`Upgraded to Tier ${tier}.`, 'system'); closeTierModal();
+        };
+
+        const shareSession = () => {
+            if (currentTier < 2) { log("ACCESS DENIED: Share function requires Tier 2+.", "error"); return; }
+            const dummyLink = `https://papi2.ai/share/${Date.now()}`;
+            navigator.clipboard.writeText(dummyLink).then(() => { log(`Session Link Copied: ${dummyLink}`, 'system'); alert("Session link copied!"); });
+        };
+
+        // --- PWA INSTALL ---
+        let deferredPrompt;
+        const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'flex'; });
+        installBtn.addEventListener('click', () => {
+            if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then((res) => { if (res.outcome === 'accepted') log('Installing...', 'system'); deferredPrompt = null; installBtn.style.display = 'none'; }); }
+            else if (isIos()) alert("To install on iOS:\n1. Tap 'Share'\n2. Tap 'Add to Home Screen'");
+        });
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) installBtn.style.display = 'none';
+        else if (isIos()) installBtn.style.display = 'flex';
+
+        // --- LOCK SCREEN ---
+        const initLockScreen = () => {
+            if (currentTier === 1) { lockScreen.style.display = 'none'; interfaceLayer.style.opacity = 1; log('Child Profile Detected. Security Bypass Active.', 'system'); }
+            else { lockScreen.style.display = 'flex'; interfaceLayer.style.opacity = 0; pinInput.focus(); }
+            updateUIIdentity();
+        };
+        const attemptUnlock = () => {
+            if (pinInput.value === userPin) { lockScreen.style.display = 'none'; interfaceLayer.style.opacity = 1; document.getElementById('command-input').focus(); speak("Access Granted."); log('System Unlocked.', 'system'); }
+            else { pinInput.value = ''; alert("ACCESS DENIED: Incorrect PIN"); }
+        };
+        pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptUnlock(); });
+
+        // --- CORE COMMAND PROCESSING ---
+        const processCommand = (cmd) => {
+            let raw = cmd.trim();
+            const originalInput = raw; 
+            if (!raw) return;
+            
+            if (currentTier === 2) {
+                if (commandCount >= TIER_2_LIMIT) { log(`LIMIT REACHED: Monthly allotment (15) exceeded. Upgrade required.`, 'error'); return; }
+                commandCount++; log(`Usage: ${commandCount}/${TIER_2_LIMIT}`, 'system');
+            }
+
+            currentCpuLoad += Math.min(raw.length * 2, 30);
+            log(originalInput, 'user');
+
+            if (raw.toLowerCase().startsWith(aiName.toLowerCase())) {
+                const potentialCommand = raw.substring(aiName.length).trim();
+                if (potentialCommand.length === 0) { log("That is me, how can I help you?", 'ai'); return; }
+                raw = potentialCommand;
+            }
+
+            const args = raw.split(' ');
+            const main = args[0].toLowerCase();
+
+            switch(main) {
+                case 'help': openHelp(); break;
+                case 'upgrade': case 'tier': openTierModal(); break;
+                case 'setpin':
+                    const newPin = args.slice(1).join(' ');
+                    if (newPin && newPin.length >= 4) { userPin = newPin; saveState(); log(`Security PIN updated.`, 'system'); } else { log('Error: PIN must be at least 4 chars.', 'error'); } break;
+                case 'stream':
+                    log('Establishing Media Uplink...', 'ai');
+                    const mediaHTML = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 20px;">
+                            <style>.media-btn { background: rgba(0, 20, 40, 0.8); border: 1px solid var(--primary); color: white; padding: 20px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.1em; cursor: pointer; transition: 0.2s; text-decoration: none; display: flex; align-items: center; justify-content: center; text-align: center; } .media-btn:hover { background: var(--primary); color: black; box-shadow: 0 0 15px var(--primary); } .disclaimer { grid-column: span 2; font-size: 0.8em; color: #888; text-align: center; margin-top: 10px; font-style: italic; }</style>
+                            <a href="https://tubitv.com" target="_blank" class="media-btn">TUBI TV</a><a href="https://pluto.tv" target="_blank" class="media-btn">PLUTO TV</a><a href="https://www.plex.tv/watch-free-tv/" target="_blank" class="media-btn">PLEX TV</a><a href="https://www.crackle.com" target="_blank" class="media-btn">CRACKLE</a><a href="https://therokuchannel.roku.com/" target="_blank" class="media-btn">ROKU CHANNEL</a><a href="https://www.amazon.com/adlp/freevee-about" target="_blank" class="media-btn">FREEVEE</a><a href="https://www.kanopy.com" target="_blank" class="media-btn">KANOPY (LIB)</a><a href="https://archive.org/details/movies" target="_blank" class="media-btn">ARCHIVE.ORG</a><div class="disclaimer">All signals are external, legal, and free-to-access.</div></div>`;
+                    openSandbox('MEDIA UPLINK', mediaHTML); log('Media hub active.', 'system'); break;
+                case 'generate':
+                    if (currentTier < 4) { log('ACCESS DENIED: App Generation requires Tier 4 (Pro).', 'error'); return; }
+                    const topic = args.slice(1).join(' ').toLowerCase();
+                    if(!topic) { log('Error: Specify an app (e.g., generate calculator)', 'error'); return; }
+                    currentCpuLoad = 100; log(`Generating code for: ${topic}...`, 'ai');
+                    let code = "";
+                    if (topic.includes('calc')) code = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;height:100%;font-family:monospace;"><input id="d" style="grid-column:span 4;background:#000;color:#0f0;border:1px solid #0f0;padding:10px;text-align:right;font-size:1.5rem;" readonly><button onclick="d.value+='1'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">1</button><button onclick="d.value+='2'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">2</button><button onclick="d.value+='3'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">3</button><button onclick="d.value+='+'" style="background:#222;color:#fff;border:1px solid #080;padding:10px;">+</button><button onclick="d.value+='4'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">4</button><button onclick="d.value+='5'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">5</button><button onclick="d.value+='6'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">6</button><button onclick="d.value+='-'" style="background:#222;color:#fff;border:1px solid #080;padding:10px;">-</button><button onclick="d.value+='7'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">7</button><button onclick="d.value+='8'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">8</button><button onclick="d.value+='9'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">9</button><button onclick="d.value+='*'" style="background:#222;color:#fff;border:1px solid #080;padding:10px;">*</button><button onclick="d.value=''" style="background:#300;color:#f88;border:1px solid #800;padding:10px;">C</button><button onclick="d.value+='0'" style="background:#111;color:#0f0;border:1px solid #080;padding:10px;">0</button><button onclick="try{d.value=eval(d.value)}catch{d.value='Err'}" style="background:#030;color:#fff;border:1px solid #0f0;padding:10px;">=</button><button onclick="d.value+='/'" style="background:#222;color:#fff;border:1px solid #080;padding:10px;">/</button></div>`;
+                    else if (topic.includes('clock')) code = `<div style="display:flex;justify-content:center;align-items:center;height:100%;flex-direction:column;"><h2 style="color:#00ffcc;font-family:monospace;margin-bottom:10px;">SYSTEM TIME</h2><div id="digiclock" style="font-size:3.5rem;color:#fff;text-shadow:0 0 10px #00ffcc;">00:00:00</div></div><script>if(window.clockInterval) clearInterval(window.clockInterval);window.clockInterval = setInterval(()=>digiclock.innerText=new Date().toLocaleTimeString(),1000);<\/script>`;
+                    else if (topic.includes('box')) code = `<div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;"><div style="width:150px;height:150px;background:red;border:2px solid white;display:flex;justify-content:center;align-items:center;color:white;font-weight:bold;animation:spin 3s linear infinite;">I AM A BOX</div></div><style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>`;
+                    else code = `<div style="padding:20px;text-align:center;color:#aaa;"><h3>App Template: ${topic}</h3><p>No specific template found for this keyword.</p><button onclick="alert('Button Clicked')" style="padding:10px;background:#333;color:white;border:1px solid #666;">Test Button</button></div>`;
+                    lastGeneratedCode = code; typeCodeBlock(code); break;
+                case 'run':
+                    if(!lastGeneratedCode) { log('No code to run. Use "generate" first.', 'error'); return; }
+                    if (currentTier === 4) { if (!confirm("TIER 4: Run this app for $0.99?")) { log("Execution cancelled.", "system"); return; } log("Payment processed.", "system"); }
+                    else if (currentTier === 5) log("TIER 5: Executing (Free)...", "system"); else if (currentTier < 4) { log("ACCESS DENIED: App Execution requires Tier 4+.", "error"); return; }
+                    log('Executing request...', 'ai'); openSandbox('GENERATED APP', lastGeneratedCode); break;
+                case 'render':
+                    const htmlContent = raw.substring(7); if(!htmlContent) { log('Usage: render <h1>Hello</h1>', 'error'); return; } openSandbox('MANUAL RENDER', htmlContent); log('Render complete.', 'system'); break;
+                case 'rename':
+                    if (currentTier < 3) { log('ACCESS DENIED: Renaming requires Tier 3 (Basic).', 'error'); return; }
+                    const newName = args.slice(1).join(' '); if (newName) { aiName = newName.toUpperCase(); saveState(); updateUIIdentity(); log(`Identity reconfigured. I am now ${aiName}.`, 'ai'); } else { log('Error: Please specify a name.', 'error'); } break;
+                case 'mute': isMuted = true; muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>'; muteBtn.classList.remove('active'); log('Audio output disabled.', 'system'); break;
+                case 'unmute': isMuted = false; muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>'; muteBtn.classList.add('active'); log('Audio output enabled.', 'ai'); break;
+                case 'clear': terminal.innerHTML = ''; log('Terminal purged.', 'system'); break;
+                case 'status':
+                    log('ANALYZING SYSTEM INTEGRITY...', 'ai'); setTimeout(() => log('CPU Load: 12%', 'system'), 200); setTimeout(() => log('Memory: 4.2TB Available', 'system'), 400); setTimeout(() => log('Audio Systems: OPERATIONAL', 'system'), 800); setTimeout(() => log('Visual Sandbox: ONLINE', 'system'), 1000); setTimeout(() => log('System Status: OPTIMAL', 'ai'), 1200); break;
+                case 'calc':
+                    try { const equation = raw.substring(5); const result = new Function('return ' + equation)(); log(`The result is ${result}`, 'ai'); } catch (e) { log('Calculation Error: Invalid Syntax', 'error'); } break;
+                case 'exec':
+                    const execCode = raw.substring(5); if (!execCode) { log('Error: No code provided.', 'error'); return; } log(`EXECUTING SUBROUTINE...`, 'system'); try { const result = (function() { const originalLog = console.log; let output = ''; console.log = (msg) => { output += msg + ' '; }; try { const evalResult = eval(execCode); if (output) log(`Output: ${output}`, 'ai'); if (evalResult !== undefined) log(`Return: ${evalResult}`, 'ai'); return "Execution Complete"; } catch (err) { throw err; } finally { console.log = originalLog; } })(); } catch (e) { log(`RUNTIME ERROR: ${e.message}`, 'error'); } break;
+                case 'scan':
+                    log('Initiating deep scan...', 'ai'); document.getElementById('canvas-container').style.filter = "hue-rotate(90deg)"; setTimeout(() => { log('No external threats detected.', 'ai'); document.getElementById('canvas-container').style.filter = "none"; }, 2000); break;
+                default:
+                    if (originalInput.toLowerCase().includes(aiName.toLowerCase())) { log("That is me, how can I help you?", 'ai'); return; }
+                    const responses = [ "Command not recognized.", "I cannot process that directive.", "Syntax error.", "Access denied." ];
+                    if (raw.includes('hello') || raw.includes('hi')) log("Greetings, Administrator.", 'ai'); else if (raw.includes('who are you')) log(`I am ${aiName}, a browser-based neural simulation.`, 'ai'); else log(responses[Math.floor(Math.random() * responses.length)], 'error');
+            }
+        };
+
+        const setupSpeechRecognition = () => {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) { micBtn.style.display = 'none'; return; }
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; 
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+
+            recognition.onstart = () => { 
+                isListening = true; 
+                micBtn.classList.add('listening'); 
+                if (!waitingForWakeWord) micBtn.classList.add('wake-active');
+            };
+            
+            recognition.onend = () => { if (isListening) recognition.start(); };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                const lower = transcript.toLowerCase();
+                
+                if (waitingForWakeWord) {
+                    if (lower.includes("hi papi") || lower.includes("hey papi") || lower.includes("papi")) {
+                        waitingForWakeWord = false;
+                        micBtn.classList.add('wake-active');
+                        let cleanCmd = transcript.replace(/hi papi|hey papi|papi/gi, "").trim();
+                        if (cleanCmd.length > 2) {
+                            input.value = cleanCmd;
+                            processCommand(cleanCmd);
+                            waitingForWakeWord = true;
+                            micBtn.classList.remove('wake-active');
+                        } else {
+                            speak("I am listening.");
+                            log("Wake Word Detected. Listening for command...", "system");
+                        }
+                    }
+                } else {
+                    input.value = transcript;
+                    processCommand(transcript);
+                    waitingForWakeWord = true;
+                    micBtn.classList.remove('wake-active');
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    isListening = false; 
+                    micBtn.classList.remove('listening'); 
+                    micBtn.classList.remove('wake-active'); 
+                    log("Voice Access Denied.", "error");
+                }
+            };
+        };
+
+        const toggleListening = () => { 
+            if (!recognition) return; 
+            if (isListening) { 
+                recognition.stop(); 
+                isListening = false; 
+                micBtn.classList.remove('listening');
+                micBtn.classList.remove('wake-active');
+                log("Voice Systems Offline.", "system");
+            } else { 
+                recognition.start(); 
+                waitingForWakeWord = true; 
+                log("Voice Systems Online. Say 'Hi PAPI'...", "system");
+            } 
+        };
+
+        const typeCodeBlock = (code) => {
+            const pre = document.createElement('div');
+            pre.className = 'code-block';
+            terminal.appendChild(pre);
+            let i = 0;
+            const timer = setInterval(() => {
+                pre.textContent += code[i];
+                terminal.scrollTop = terminal.scrollHeight;
+                i++;
+                if (i >= code.length) { clearInterval(timer); log('Generation complete. Type "run" to execute.', 'system'); }
+            }, 5);
+        };
+
+        const initMonitoring = () => {
+            const cpuBadge = document.getElementById('cpu-status');
+            setInterval(() => {
+                if (currentCpuLoad > 10) { currentCpuLoad -= 2; if (currentCpuLoad < 10) currentCpuLoad = 10; }
+                if (currentCpuLoad > 100) currentCpuLoad = 100;
+                const displayUsage = Math.floor(currentCpuLoad);
+                cpuBadge.textContent = `CPU: ${displayUsage}%`;
+                if (displayUsage > 80) cpuBadge.style.color = 'var(--alert)'; else if (displayUsage > 50) cpuBadge.style.color = '#ffcc00'; else cpuBadge.style.color = 'var(--primary)';
+            }, 200);
+        };
+
+        const initVisuals = () => {
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            const geometry = new THREE.BufferGeometry();
+            const count = 2000;
+            const positions = new Float32Array(count * 3);
+            for(let i = 0; i < count * 3; i++) positions[i] = (Math.random() - 0.5) * 15;
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({ size: 0.05, color: 0x00ffcc, transparent: true, opacity: 0.8 });
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0088aa, transparent: true, opacity: 0.15 });
+            const lineGeometry = new THREE.BufferGeometry();
+            scene.add(new THREE.LineSegments(lineGeometry, lineMaterial));
+            camera.position.z = 5;
+            let time = 0;
+            const animate = () => { requestAnimationFrame(animate); time += 0.002; particles.rotation.y = time; particles.rotation.x = time * 0.5; const scale = 1 + Math.sin(time * 2) * 0.05; particles.scale.set(scale, scale, scale); renderer.render(scene, camera); };
+            animate();
+            window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+        };
+
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const cmd = input.value; if (cmd) { processCommand(cmd); input.value = ''; } } });
+        muteBtn.addEventListener('click', () => { isMuted = !isMuted; if (isMuted) { muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>'; muteBtn.classList.remove('active'); } else { muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>'; muteBtn.classList.add('active'); speak("Audio systems online."); } });
+        micBtn.addEventListener('click', toggleListening);
+        document.addEventListener('keydown', (e) => { if (e.key === '`' && !e.repeat) { e.preventDefault(); toggleListening(); } });
+
+        initVisuals(); setupSpeechRecognition(); initMonitoring(); initLockScreen();
+        window.speechSynthesis.onvoiceschanged = () => {};
+    </script>
+</body>
+</html>
